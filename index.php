@@ -1,5 +1,6 @@
 <?php
 session_start();
+$cspNonce = require_once 'config/security_headers.php';
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
     if ($_SESSION['role'] === 'admin') header('Location: admin/dashboard.php');
     else header('Location: resident/dashboard.php');
@@ -12,9 +13,8 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ragsak, Ranyag Gerona Complaints</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous">
+    <style nonce="<?= htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8') ?>">
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; background: #0a0e14; }
 
@@ -332,13 +332,13 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
         <div class="welcome-sub">Report concerns, track their progress, and help us build a better Gerona together.</div>
 
         <div class="btn-group">
-            <button class="btn-login" onclick="openPopup('login.php')">
+            <button class="btn-login" data-popup-url="login.php">
                 <i class="fa-solid fa-right-to-bracket"></i> Login
             </button>
             <div class="divider-row">
                 <div class="line"></div><span>or</span><div class="line"></div>
             </div>
-            <button class="btn-register" onclick="openPopup('register.php')">
+            <button class="btn-register" data-popup-url="register.php">
                 <i class="fa-solid fa-user-plus"></i> Register Account
             </button>
         </div>
@@ -354,12 +354,12 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
 <div class="modal-overlay" id="popupModal">
     <div class="modal-container">
         <div class="modal-accent-bar"></div>
-        <button class="modal-close" onclick="closePopup()"><i class="fa-solid fa-xmark"></i></button>
+        <button class="modal-close" id="popupClose"><i class="fa-solid fa-xmark"></i></button>
         <iframe class="modal-iframe" id="popupIframe" src=""></iframe>
     </div>
 </div>
 
-<script>
+<script nonce="<?= htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8') ?>">
     function openPopup(pageUrl) {
         document.getElementById('popupIframe').src = pageUrl;
         document.getElementById('popupModal').classList.add('active');
@@ -367,11 +367,15 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
 
     function closePopup() {
         document.getElementById('popupModal').classList.remove('active');
-        // Clear iframe after transition to save memory
         setTimeout(() => {
             document.getElementById('popupIframe').src = '';
         }, 300);
     }
+
+    document.querySelectorAll('[data-popup-url]').forEach(button => {
+        button.addEventListener('click', () => openPopup(button.dataset.popupUrl));
+    });
+    document.getElementById('popupClose').addEventListener('click', closePopup);
 
     // Close popup when clicking outside the box
     document.getElementById('popupModal').addEventListener('click', function(e) {

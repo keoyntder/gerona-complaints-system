@@ -1,5 +1,6 @@
 <?php
 session_start();
+$cspNonce = require_once 'config/security_headers.php';
 require_once 'config/database.php';
 
 $error   = '';
@@ -22,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_name'] = $admin['full_name'];
             $_SESSION['role']      = 'admin';
             $_SESSION['logged_in'] = true;
-            echo "<script>top.location.href = 'admin/dashboard.php';</script>";
+            echo "<script nonce=\"$cspNonce\">top.location.href = 'admin/dashboard.php';</script>";
             exit;
         }
 
@@ -40,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_name'] = $user['full_name'];
                 $_SESSION['role']      = 'resident';
                 $_SESSION['logged_in'] = true;
-                echo "<script>top.location.href = 'resident/dashboard.php';</script>";
+                echo "<script nonce=\"$cspNonce\">top.location.href = 'resident/dashboard.php';</script>";
                 exit;
             }
         } else {
@@ -55,9 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Ragsak Ranyag Gerona</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous">
+    <style nonce="<?= htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8') ?>">
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
@@ -102,26 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: absolute;
             inset: 0;
             width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center;
-            opacity: 0.45;
-            transition: transform 0.5s ease;
-        }
-
-        .hero-side:hover .hero-bg {
-            transform: scale(1.05);
-        }
-
-        .hero-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, rgba(15, 17, 21, 0.7) 0%, rgba(15, 17, 21, 0.95) 100%);
-            z-index: 1;
-        }
-
-        .hero-content {
-            position: relative;
+            height: 100%;   
             z-index: 2;
             height: 100%;
             display: flex;
@@ -525,7 +506,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </div>
 
-<script>
+<script nonce="<?= htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8') ?>">
     document.getElementById('togglePw').addEventListener('click', function () {
         const pw = document.getElementById('password');
         if (pw.type === 'password') {
