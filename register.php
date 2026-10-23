@@ -26,20 +26,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) $errors[] = 'This email is already registered.';
     }
 
-    if (empty($_FILES['id_photo']['name'])) {
+    $idPhotoPath = null;
+    if (!isset($_FILES['id_photo']) || $_FILES['id_photo']['error'] === UPLOAD_ERR_NO_FILE) {
         $errors[] = 'Please upload your valid ID.';
     } else {
-        $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-        $ext     = strtolower(pathinfo($_FILES['id_photo']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowed)) $errors[] = 'ID must be a JPG, PNG, or PDF file.';
-        if ($_FILES['id_photo']['size'] > 2 * 1024 * 1024) $errors[] = 'ID file must be 2MB or less.';
+        $upload = $_FILES['id_photo'];
+
+        if ($upload['error'] !== UPLOAD_ERR_OK) {
+            if (in_array($upload['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                $errors[] = 'ID file must be 2MB or less.';
+            } elseif ($upload['error'] === UPLOAD_ERR_PARTIAL) {
+                $errors[] = 'The ID upload was incomplete. Please try again.';
+            } else {
+                $errors[] = 'The ID could not be uploaded. Please try again.';
+            }
+        } elseif ($upload['size'] > 2 * 1024 * 1024) {
+            $errors[] = 'ID file must be 2MB or less.';
+        } elseif (!is_uploaded_file($upload['tmp_name'])) {
+            $errors[] = 'The uploaded ID could not be verified. Please try again.';
+        } else {
+            $extension = strtolower(pathinfo($upload['name'], PATHINFO_EXTENSION));
+            $mimeType  = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+            $validTypes = [
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png'  => 'image/png',
+                'pdf'  => 'application/pdf',
+            ];
+
+            if (!isset($validTypes[$extension]) || $validTypes[$extension] !== $mimeType) {
+                $errors[] = 'ID must be a valid JPG, PNG, or PDF file.';
+            } else {
+                $uploadDirectory = __DIR__ . '/uploads/ids';
+
+                if (!is_dir($uploadDirectory) || !is_writable($uploadDirectory)) {
+                    $errors[] = 'IDs cannot be saved right now. Please contact the site administrator.';
+                } else {
+                    $newName = bin2hex(random_bytes(16)) . '.' . $extension;
+                    $destination = $uploadDirectory . DIRECTORY_SEPARATOR . $newName;
+
+                    if (move_uploaded_file($upload['tmp_name'], $destination)) {
+                        $idPhotoPath = 'uploads/ids/' . $newName;
+                    } else {
+                        $errors[] = 'The ID could not be saved. Please try again or contact the site administrator.';
+                    }
+                }
+            }
+        }
     }
 
     if (empty($errors)) {
-        $newName = uniqid() . '.' . $ext;
-        move_uploaded_file($_FILES['id_photo']['tmp_name'], 'uploads/ids/' . $newName);
         $stmt = $pdo->prepare("INSERT INTO users (full_name, address, email, password, id_photo, status) VALUES (?, ?, ?, ?, ?, 'pending')");
-        $stmt->execute([$full_name, $address, $email, password_hash($password, PASSWORD_DEFAULT), 'uploads/ids/' . $newName]);
+        $stmt->execute([$full_name, $address, $email, password_hash($password, PASSWORD_DEFAULT), $idPhotoPath]);
         $success = 'Registration successful! Please wait for LGU verification.';
     }
 }

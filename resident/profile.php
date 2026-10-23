@@ -217,7 +217,7 @@ $page_title  = 'My Profile';
                         <div class="id-preview">
                             <i class="fa-regular fa-id-card"></i>
                             <div>
-                                <a href="../<?= $user['id_photo'] ?>" target="_blank">View Uploaded ID</a>
+                                <a href="/<?= htmlspecialchars(ltrim($user['id_photo'], '/'), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">View Uploaded ID</a>
                                 <div><span>Uploaded during registration</span></div>
                             </div>
                         </div>
