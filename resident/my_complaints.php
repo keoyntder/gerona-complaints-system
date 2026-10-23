@@ -36,6 +36,8 @@ $page_title  = 'My Complaints';
 
         .btn-new { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: #0E4D92; color: #fff; font-size: 13px; font-weight: 600; border-radius: 6px; text-decoration: none; }
         .btn-new:hover { background: #1A63B8; }
+        .btn-pdf { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; background: #eef4fb; color: #0E4D92; font-size: 12px; font-weight: 600; border-radius: 5px; text-decoration: none; white-space: nowrap; }
+        .btn-pdf:hover { background: #dceafb; }
 
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; padding: 12px 16px; background: #fafafa; color: #888; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f0f0f0; }
@@ -86,7 +88,8 @@ $page_title  = 'My Complaints';
                             <th>Description</th>
                             <th>Photo</th>
                             <th>Status</th>
-                            <th>Date</th>
+                            <th>Submitted</th>
+                            <th>PDF</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -114,7 +117,12 @@ $page_title  = 'My Complaints';
                                 </span>
                             </td>
                             <td style="color:#888;font-size:13px">
-                                <?= date('M d, Y', strtotime($c['created_at'])) ?>
+                                <?= date('M d, Y \a\t h:i A', strtotime($c['created_at'])) ?>
+                            </td>
+                            <td>
+                                <a class="btn-pdf" href="complaint_pdf.php?id=<?= (int) $c['id'] ?>" target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-solid fa-file-pdf"></i> PDF
+                                </a>
                             </td>
                         </tr>
                         <?php endforeach; ?>

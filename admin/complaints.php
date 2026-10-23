@@ -397,6 +397,20 @@ $pending_complaints = $pdo->query("
             background: #f1aeb5;
         }
 
+        .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 10px;
+            background: #eef4fb;
+            color: #0E4D92;
+            text-decoration: none;
+        }
+
+        .btn-pdf:hover {
+            background: #dceafb;
+        }
+
         /* =========================
            VIEW PHOTO
         ========================= */
@@ -624,7 +638,7 @@ $pending_complaints = $pdo->query("
                                     <th>Description</th>
                                     <th>Photo</th>
                                     <th>Status</th>
-                                    <th>Date</th>
+                                    <th>Submitted</th>
                                     <th style="min-width:210px;">
                                         Action
                                     </th>
@@ -748,7 +762,7 @@ $pending_complaints = $pdo->query("
                                         <td style="color:#888;font-size:13px">
 
                                             <?= date(
-                                                'M d, Y',
+                                                'M d, Y \a\t h:i A',
                                                 strtotime($c['created_at'])
                                             ) ?>
 
@@ -760,6 +774,16 @@ $pending_complaints = $pdo->query("
                                         <td>
 
                                             <div class="action-buttons">
+
+                                                <a
+                                                    class="action-btn btn-pdf"
+                                                    href="../resident/complaint_pdf.php?id=<?= (int) $c['id'] ?>"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <i class="fa-solid fa-file-pdf"></i>
+                                                    PDF
+                                                </a>
 
                                                 <?php if ($c['status'] === 'pending'): ?>
 
