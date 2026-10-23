@@ -156,6 +156,8 @@ function time_ago($datetime) {
         .post-footer { padding: 12px 16px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
         .post-footer .status-wrap { display: flex; align-items: center; gap: 8px; }
         .post-footer .cat-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+        .post-pdf { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; border-radius: 5px; background: #eef4fb; color: #0E4D92; text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .post-pdf:hover { background: #dceafb; }
 
         @media (max-width: 640px) {
             .feed { columns: 1; }
@@ -326,7 +328,12 @@ require 'includes/header.php';
                         <div class="cat-wrap">
                             <span class="category-chip"><i class="fa-solid fa-tag"></i> <?= htmlspecialchars($c['category']) ?></span>
                         </div>
-                        <span style="font-size:12px;color:#aaa"><?= date('M d, Y \a\t h:i A', strtotime($c['created_at'])) ?></span>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <span style="font-size:12px;color:#aaa"><?= date('M d, Y \a\t h:i A', strtotime($c['created_at'])) ?></span>
+                            <a class="post-pdf" href="complaint_pdf.php?id=<?= (int) $c['id'] ?>" target="_blank" rel="noopener noreferrer">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </a>
+                        </div>
                     </div>
 
                 </div>

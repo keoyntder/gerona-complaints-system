@@ -1,13 +1,9 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['logged_in']) || !in_array($_SESSION['role'] ?? '', ['resident', 'admin'], true)) {
-    header('Location: ../login.php');
-    exit;
-}
-
 require_once '../config/database.php';
 $cspNonce = require_once '../config/security_headers.php';
+$role = !empty($_SESSION['logged_in']) ? ($_SESSION['role'] ?? null) : null;
 
 $complaintId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$complaintId || $complaintId < 1) {
@@ -15,7 +11,7 @@ if (!$complaintId || $complaintId < 1) {
     exit('Complaint not found.');
 }
 
-if ($_SESSION['role'] === 'resident') {
+if ($role === 'resident') {
     $stmt = $pdo->prepare(
         'SELECT c.*, u.full_name, u.email, u.address
          FROM complaints c
@@ -24,9 +20,18 @@ if ($_SESSION['role'] === 'resident') {
          LIMIT 1'
     );
     $stmt->execute([$complaintId, $_SESSION['user_id']]);
-} else {
+} elseif ($role === 'admin') {
     $stmt = $pdo->prepare(
         'SELECT c.*, u.full_name, u.email, u.address
+         FROM complaints c
+         JOIN users u ON c.user_id = u.id
+         WHERE c.id = ?
+         LIMIT 1'
+    );
+    $stmt->execute([$complaintId]);
+} else {
+    $stmt = $pdo->prepare(
+        'SELECT c.*, u.full_name
          FROM complaints c
          JOIN users u ON c.user_id = u.id
          WHERE c.id = ?
@@ -131,21 +136,26 @@ if (
         <h2>Description</h2>
         <div class="description"><?= $escape($complaint['description']) ?></div>
 
-        <h2>Submitted by</h2>
-        <section class="details">
-            <div class="field">
-                <span class="field-label">Name</span>
-                <div class="field-value"><?= $escape($complaint['full_name']) ?></div>
-            </div>
-            <div class="field">
-                <span class="field-label">Email</span>
-                <div class="field-value"><?= $escape($complaint['email']) ?></div>
-            </div>
-            <div class="field">
-                <span class="field-label">Address</span>
-                <div class="field-value"><?= $escape($complaint['address']) ?></div>
-            </div>
-        </section>
+        <?php if ($role === 'admin' || $role === 'resident'): ?>
+            <h2>Submitted by</h2>
+            <section class="details">
+                <div class="field">
+                    <span class="field-label">Name</span>
+                    <div class="field-value"><?= $escape($complaint['full_name']) ?></div>
+                </div>
+                <div class="field">
+                    <span class="field-label">Email</span>
+                    <div class="field-value"><?= $escape($complaint['email']) ?></div>
+                </div>
+                <div class="field">
+                    <span class="field-label">Address</span>
+                    <div class="field-value"><?= $escape($complaint['address']) ?></div>
+                </div>
+            </section>
+        <?php else: ?>
+            <h2>Reported by</h2>
+            <div class="field-value"><?= $escape($complaint['full_name']) ?></div>
+        <?php endif; ?>
 
         <?php if ($photoUrl): ?>
             <section class="photo-section">
