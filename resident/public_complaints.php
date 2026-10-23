@@ -23,6 +23,13 @@ $filter_category = $_GET['category'] ?? '';
 $filter_barangay = $_GET['barangay'] ?? '';
 $filter_status   = $_GET['status'] ?? '';
 $search          = $_GET['search'] ?? '';
+$date_from_input = $_GET['date_from'] ?? '';
+$date_to_input   = $_GET['date_to'] ?? '';
+$filter_error    = (!is_string($date_from_input) || !is_string($date_to_input))
+    ? 'Enter a valid date and time for the selected range.'
+    : '';
+$date_from = is_string($date_from_input) ? $date_from_input : '';
+$date_to   = is_string($date_to_input) ? $date_to_input : '';
 
 $where  = ['1=1'];
 $params = [];
@@ -38,6 +45,49 @@ if ($search) {
     $params[] = "%$search%";
 }
 
+$date_from_value = null;
+$date_to_value = null;
+foreach (['date_from' => $date_from, 'date_to' => $date_to] as $field => $value) {
+    if ($value === '') {
+        continue;
+    }
+
+    $dateTime = DateTimeImmutable::createFromFormat(
+        '!Y-m-d\TH:i',
+        $value,
+        new DateTimeZone('Asia/Manila')
+    );
+    $dateErrors = DateTimeImmutable::getLastErrors();
+
+    if (
+        !$dateTime
+        || ($dateErrors !== false && ($dateErrors['warning_count'] > 0 || $dateErrors['error_count'] > 0))
+        || $dateTime->format('Y-m-d\TH:i') !== $value
+    ) {
+        $filter_error = 'Enter a valid date and time for the selected range.';
+        break;
+    }
+
+    if ($field === 'date_from') {
+        $date_from_value = $dateTime;
+    } else {
+        $date_to_value = $dateTime;
+    }
+}
+
+if (!$filter_error && $date_from_value && $date_to_value && $date_from_value > $date_to_value) {
+    $filter_error = 'The start date and time must be before the end date and time.';
+}
+
+if (!$filter_error && $date_from_value) {
+    $where[] = 'c.created_at >= ?';
+    $params[] = $date_from_value->format('Y-m-d H:i:s');
+}
+if (!$filter_error && $date_to_value) {
+    $where[] = 'c.created_at <= ?';
+    $params[] = $date_to_value->format('Y-m-d H:i:') . '59';
+}
+
 $sql = "
     SELECT c.*, u.full_name
     FROM complaints c
@@ -46,9 +96,13 @@ $sql = "
     ORDER BY c.created_at DESC
 ";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$complaints = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($filter_error) {
+    $complaints = [];
+} else {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $complaints = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $total    = $pdo->query("SELECT COUNT(*) FROM complaints")->fetchColumn();
 $pending  = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status='pending'")->fetchColumn();
@@ -91,8 +145,8 @@ function time_ago($datetime) {
         .filter-bar form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; gap: 4px; }
         .filter-group label { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
-        .filter-group select, .filter-group input[type=text] { padding: 8px 10px; border: 1px solid #c8ccd0; border-radius: 3px; font-size: 13px; font-family: 'Inter', sans-serif; color: #1a1a1a; background: #fff; outline: none; min-width: 160px; }
-        .filter-group select:focus, .filter-group input[type=text]:focus { border-color: #0E4D92; }
+        .filter-group select, .filter-group input[type=text], .filter-group input[type=datetime-local] { padding: 8px 10px; border: 1px solid #c8ccd0; border-radius: 3px; font-size: 13px; font-family: 'Inter', sans-serif; color: #1a1a1a; background: #fff; outline: none; min-width: 160px; }
+        .filter-group select:focus, .filter-group input[type=text]:focus, .filter-group input[type=datetime-local]:focus { border-color: #0E4D92; }
         .search-group { flex: 1; min-width: 200px; }
         .search-wrap { position: relative; }
         .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 13px; }
@@ -233,11 +287,19 @@ require 'includes/header.php';
                     <option value="resolved"    <?= $filter_status === 'resolved'    ? 'selected' : '' ?>>Resolved</option>
                 </select>
             </div>
+            <div class="filter-group">
+                <label for="date_from">From date and time</label>
+                <input type="datetime-local" id="date_from" name="date_from" value="<?= htmlspecialchars($date_from, ENT_QUOTES, 'UTF-8') ?>">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">To date and time</label>
+                <input type="datetime-local" id="date_to" name="date_to" value="<?= htmlspecialchars($date_to, ENT_QUOTES, 'UTF-8') ?>">
+            </div>
             <div class="filter-group search-group">
                 <label>Search</label>
                 <div class="search-wrap">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" name="search" placeholder="Search by keyword, location, barangay..." value="<?= htmlspecialchars($search) ?>">
+                    <input type="text" name="search" placeholder="Search by keyword, location, barangay..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
                 </div>
             </div>
             <button type="submit" class="btn-filter">
@@ -249,8 +311,12 @@ require 'includes/header.php';
         </form>
     </div>
 
+    <?php if ($filter_error): ?>
+        <div class="empty-state" role="alert"><?= htmlspecialchars($filter_error, ENT_QUOTES, 'UTF-8') ?></div>
+    <?php endif; ?>
+
     <!-- Active filters -->
-    <?php if ($filter_category || $filter_barangay || $filter_status || $search): ?>
+    <?php if ($filter_category || $filter_barangay || $filter_status || $search || $date_from || $date_to): ?>
     <div class="active-filters">
         <?php if ($filter_category): ?>
             <span class="filter-chip"><i class="fa-solid fa-tag"></i> <?= htmlspecialchars($filter_category) ?></span>
@@ -264,13 +330,19 @@ require 'includes/header.php';
         <?php if ($search): ?>
             <span class="filter-chip"><i class="fa-solid fa-magnifying-glass"></i> "<?= htmlspecialchars($search) ?>"</span>
         <?php endif; ?>
+        <?php if ($date_from): ?>
+            <span class="filter-chip"><i class="fa-regular fa-calendar"></i> From <?= htmlspecialchars(str_replace('T', ' ', $date_from)) ?></span>
+        <?php endif; ?>
+        <?php if ($date_to): ?>
+            <span class="filter-chip"><i class="fa-regular fa-calendar"></i> To <?= htmlspecialchars(str_replace('T', ' ', $date_to)) ?></span>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
     <!-- Result count -->
     <div class="result-info">
         Showing <strong><?= count($complaints) ?></strong> complaint<?= count($complaints) !== 1 ? 's' : '' ?>
-        <?= ($filter_category || $filter_barangay || $filter_status || $search) ? 'matching your filters' : 'in total' ?>
+        <?= ($filter_category || $filter_barangay || $filter_status || $search || $date_from || $date_to) ? 'matching your filters' : 'in total' ?>
     </div>
 
     <!-- Feed -->
