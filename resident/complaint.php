@@ -21,18 +21,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($description)) $errors[] = 'Description is required.';
 
     $photo = null;
-    if (!empty($_FILES['photo']['name'])) {
-        $allowed = ['jpg', 'jpeg', 'png'];
-        $ext     = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowed)) {
-            $errors[] = 'Photo must be JPG or PNG.';
-        } elseif ($_FILES['photo']['size'] > 5 * 1024 * 1024) {
+    if (isset($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $upload = $_FILES['photo'];
+
+        if ($upload['error'] !== UPLOAD_ERR_OK) {
+            if (in_array($upload['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                $errors[] = 'Photo must be 5MB or less.';
+            } elseif ($upload['error'] === UPLOAD_ERR_PARTIAL) {
+                $errors[] = 'The photo upload was incomplete. Please try again.';
+            } else {
+                $errors[] = 'The photo could not be uploaded. Please try again.';
+            }
+        } elseif ($upload['size'] > 5 * 1024 * 1024) {
             $errors[] = 'Photo must be 5MB or less.';
+        } elseif (!is_uploaded_file($upload['tmp_name'])) {
+            $errors[] = 'The uploaded photo could not be verified. Please try again.';
         } else {
-            $filename    = uniqid() . '.' . $ext;
-            $photo       = 'uploads/complaints/' . $filename;
-            $destination = realpath(__DIR__ . '/../uploads/complaints') . '/' . $filename;
-            move_uploaded_file($_FILES['photo']['tmp_name'], $destination);
+            $extension = strtolower(pathinfo($upload['name'], PATHINFO_EXTENSION));
+            $mimeType  = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+            $validTypes = [
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png'  => 'image/png',
+            ];
+
+            if (!isset($validTypes[$extension]) || $validTypes[$extension] !== $mimeType) {
+                $errors[] = 'Photo must be a valid JPG or PNG image.';
+            } else {
+                $uploadDirectory = __DIR__ . '/../uploads/complaints';
+
+                if (!is_dir($uploadDirectory) || !is_writable($uploadDirectory)) {
+                    $errors[] = 'Photos cannot be saved right now. Please contact the site administrator.';
+                } else {
+                    $filename = bin2hex(random_bytes(16)) . '.' . $extension;
+                    $destination = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+
+                    if (move_uploaded_file($upload['tmp_name'], $destination)) {
+                        $photo = 'uploads/complaints/' . $filename;
+                    } else {
+                        $errors[] = 'The photo could not be saved. Please try again or contact the site administrator.';
+                    }
+                }
+            }
         }
     }
 
