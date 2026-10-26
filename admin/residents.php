@@ -6,7 +6,17 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] !== 'admin') {
 }
 require_once '../config/database.php';
 
-$users = $pdo->query("SELECT * FROM users ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+$csrfToken = $_SESSION['csrf_token'] ?? bin2hex(random_bytes(32));
+$_SESSION['csrf_token'] = $csrfToken;
+$assignmentMessage = $_SESSION['admin_assignment_message'] ?? null;
+unset($_SESSION['admin_assignment_message']);
+
+$users = $pdo->query("
+    SELECT users.*,
+           EXISTS (SELECT 1 FROM admins WHERE admins.email = users.email) AS is_admin
+    FROM users
+    ORDER BY users.created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC);
 $pending_users      = $pdo->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $pending_complaints = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status='pending'")->fetchColumn();
 ?>
@@ -61,12 +71,18 @@ $pending_complaints = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status=
         .badge-pending  { background: #FFF3CD; color: #856404; }
         .badge-verified { background: #D1E7DD; color: #0A6640; }
         .badge-rejected { background: #F8D7DA; color: #842029; }
+        .badge-admin { background: #E8EAF6; color: #3949AB; }
 
         .action-btn { padding: 5px 12px; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; margin-right: 4px; }
         .btn-verify { background: #D1E7DD; color: #0A6640; }
         .btn-verify:hover { background: #b8ddc9; }
         .btn-reject { background: #F8D7DA; color: #842029; }
         .btn-reject:hover { background: #f0bec3; }
+        .btn-admin { background: #E8EAF6; color: #3949AB; }
+        .btn-admin:hover { background: #d5d9f0; }
+        .assignment-message { margin-bottom: 18px; padding: 12px 16px; border-radius: 6px; font-size: 14px; }
+        .assignment-success { background: #D1E7DD; color: #0A6640; }
+        .assignment-error { background: #F8D7DA; color: #842029; }
 
         .view-id { color: #8B6914; font-size: 13px; text-decoration: none; font-weight: 500; }
         .view-id:hover { text-decoration: underline; }
@@ -118,6 +134,11 @@ $pending_complaints = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status=
     </div>
 
     <div class="content">
+        <?php if ($assignmentMessage): ?>
+            <div class="assignment-message assignment-<?= htmlspecialchars($assignmentMessage['type'], ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars($assignmentMessage['text'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
+        <?php endif; ?>
         <div class="table-card">
             <div class="table-header">
                 <h3>All Residents</h3>
@@ -143,6 +164,7 @@ $pending_complaints = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status=
                             <th>ID Photo</th>
                             <th>Reward Points</th>
                             <th>Status</th>
+                            <th>Role</th>
                             <th>Registered</th>
                             <th>Action</th>
                         </tr>
@@ -174,11 +196,28 @@ $pending_complaints = $pdo->query("SELECT COUNT(*) FROM complaints WHERE status=
                                     <?= ucfirst($user['status']) ?>
                                 </span>
                             </td>
+                            <td>
+                                <?php if ($user['is_admin']): ?>
+                                    <span class="badge badge-admin">Admin</span>
+                                <?php else: ?>
+                                    <span>Resident</span>
+                                <?php endif; ?>
+                            </td>
                             <td style="color:#888;font-size:13px">
                                 <?= date('M d, Y', strtotime($user['created_at'])) ?>
                             </td>
                             <td>
-                                <?php if ($user['status'] === 'pending'): ?>
+                                <?php if ($user['is_admin']): ?>
+                                    <span style="color:#bbb;font-size:13px">Admin assigned</span>
+                                <?php elseif ($user['status'] === 'verified'): ?>
+                                    <form action="assign_admin.php" method="POST" style="display:inline" onsubmit="return confirm('Assign this resident as an administrator? They will have access to the admin portal.');">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                        <button type="submit" class="action-btn btn-admin">
+                                            <i class="fa-solid fa-user-shield"></i> Make Admin
+                                        </button>
+                                    </form>
+                                <?php elseif ($user['status'] === 'pending'): ?>
                                     <form action="verify_user.php" method="POST" style="display:inline">
                                         <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
                                         <input type="hidden" name="action" value="verify">
